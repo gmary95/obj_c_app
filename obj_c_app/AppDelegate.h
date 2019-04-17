@@ -1,17 +1,13 @@
-//
-//  AppDelegate.h
-//  obj_c_app
-//
-//  Created by Mary Gerina on 11/26/18.
-//  Copyright © 2018 Mary Gerina. All rights reserved.
-//
-
 #import <UIKit/UIKit.h>
+#import <UserNotifications/UserNotifications.h>
 
-@interface AppDelegate : UIResponder <UIApplicationDelegate>
+extern NSString * globalVariable;
+
+@interface AppDelegate : UIResponder <UIApplicationDelegate, UNUserNotificationCenterDelegate>
 
 @property (strong, nonatomic) UIWindow *window;
 
++(AppDelegate *)delegate;
+-(void)initialseTimerNotificationData;
 
 @end
-

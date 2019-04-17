@@ -7,45 +7,208 @@
 //
 
 #import "AppDelegate.h"
+#import <UserNotifications/UserNotifications.h>
+#import "NotificationService.h"
 
-@interface AppDelegate ()
+NSString *const pushNotificationCategoryIdent = @"Actionable";
+NSString *const pushNotificationFirstActionIdent = @"First_Action";
+NSString *const pushNotificationSecondActionIdent = @"Second_Action";
+
+@interface AppDelegate (){
+    NSString *devceToken;
+    UNUserNotificationCenter *center;
+}
 
 @end
+
+NSString * globalVariable;
 
 @implementation AppDelegate
 
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-    // Override point for customization after application launch.
+    
+    [self registerForLocalNotification];
+    
+    UILocalNotification *launchNote = launchOptions[UIApplicationLaunchOptionsLocalNotificationKey];
+    if (launchNote) {
+        
+        NSLog(@":%@", launchNote.userInfo);
+        
+        
+    }
     return YES;
 }
 
+-(void)registerForLocalNotification{
+    center = [UNUserNotificationCenter currentNotificationCenter];
+    [center setDelegate:self];
+    
+    [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *  settings) {
+        
+        if (settings.authorizationStatus == UNAuthorizationStatusNotDetermined || settings.authorizationStatus == UNAuthorizationStatusDenied) {
+            
+            [center requestAuthorizationWithOptions:UNAuthorizationOptionSound + UNAuthorizationOptionBadge + UNAuthorizationOptionAlert completionHandler:^(BOOL granted, NSError *  error) {
+                if (!granted) {
+                    NSLog(@"something went wrong");
+                }
+                else
+                {
+                    
+                }
+            }];
+        }
+    }];
+    
+}
 
-- (void)applicationWillResignActive:(UIApplication *)application {
-    // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
-    // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
+-(void)initialseTimerNotificationData{
+    UNMutableNotificationContent *content = [UNMutableNotificationContent new];
+    content.title = @"Rich Notificaions";
+    content.subtitle = @"implemented in iOS 10";
+    content.body = @"This also includes support for Multiple Targets. It's a fascinating thing.";
+    content.sound = [UNNotificationSound defaultSound];
+    content.accessibilityHint = @"NotificationCategory1";
+    
+    NSURL *imgUrl = [[NSBundle mainBundle] URLForResource:@"notification" withExtension:@"png"];
+    NSError *attachmentError = nil;
+    UNNotificationAttachment *attachment = [UNNotificationAttachment attachmentWithIdentifier:@"" URL:imgUrl options:@{UNNotificationAttachmentOptionsTypeHintKey: @"PNG"} error:&attachmentError];
+    content.attachments = @[attachment];
+    
+    [self addNotificationAction];
+    
+    content.categoryIdentifier = @"NotificationCategory1";
+    
+    NSDate *date = [NSDate dateWithTimeIntervalSinceNow:1];
+    NSDateComponents *componenets = [[NSCalendar currentCalendar] components:NSCalendarUnitSecond + NSCalendarUnitNanosecond fromDate:date];
+    
+    
+    UNCalendarNotificationTrigger *trigger = [UNCalendarNotificationTrigger triggerWithDateMatchingComponents:componenets repeats:false];
+    
+    UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:@"Timer" content:content trigger:trigger];
+    
+    [center addNotificationRequest:request withCompletionHandler:^(NSError * _Nullable error) {
+        
+        if (error) {
+            NSLog(@":%@", error.localizedDescription);
+        }
+        
+    }];
 }
 
 
-- (void)applicationDidEnterBackground:(UIApplication *)application {
-    // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
-    // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+-(void)addNotificationAction{
+    UNNotificationAction *deleteAction = [UNNotificationAction actionWithIdentifier:@"Delete" title:@"Delete" options:UNNotificationActionOptionDestructive];
+    UNNotificationAction *openAction = [UNNotificationAction actionWithIdentifier:@"Open" title:@"Open" options:UNNotificationActionOptionForeground];
+    
+    UNNotificationCategory *category = [UNNotificationCategory categoryWithIdentifier:@"NotificationCategory1" actions:@[deleteAction, openAction] intentIdentifiers:@[] options:UNNotificationCategoryOptionNone];
+    NSSet *Categories = [NSSet setWithObject:category];
+    
+    [center setNotificationCategories: Categories];
+    
 }
 
 
-- (void)applicationWillEnterForeground:(UIApplication *)application {
-    // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center didReceiveNotificationResponse:(UNNotificationResponse *)response withCompletionHandler:(void(^)())completionHandler{
+    
+    
+    NSLog(@":%@", response.notification.request.content.categoryIdentifier);
+    
+    if ([response.notification.request.content.categoryIdentifier isEqualToString:@"NotificationCategory1"]) {
+        NSLog(@":%@", response.actionIdentifier);
+        if (response.actionIdentifier == UNNotificationDismissActionIdentifier) {
+            NSLog(@"action");
+        }
+        else if ([response.actionIdentifier  isEqual: @"Delete"]){
+            
+            NSLog(@"Delete");
+        }
+        else if ([response.actionIdentifier isEqual: @"Open"]){
+            NSLog(@"open");
+        }
+    }
+    
+    completionHandler();
+    
+}
+
+- (void)registerForRemoteNotification
+{
+    if([[[UIDevice currentDevice] systemVersion] floatValue] >= 10.0) {
+        center = [UNUserNotificationCenter currentNotificationCenter];
+        center.delegate = self;
+        [center requestAuthorizationWithOptions:(UNAuthorizationOptionSound | UNAuthorizationOptionAlert | UNAuthorizationOptionBadge) completionHandler:^(BOOL granted, NSError * _Nullable error){
+            
+            [[UIApplication sharedApplication] registerForRemoteNotifications];
+        }];
+    }
+    else {
+        [[UIApplication sharedApplication] registerUserNotificationSettings:[UIUserNotificationSettings settingsForTypes:(UIUserNotificationTypeSound | UIUserNotificationTypeAlert | UIUserNotificationTypeBadge) categories:nil]];
+        [[UIApplication sharedApplication] registerForRemoteNotifications];
+    }
 }
 
 
-- (void)applicationDidBecomeActive:(UIApplication *)application {
-    // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+-(void)application:(UIApplication *)application didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings
+{
+    [application registerForRemoteNotifications];
+}
+
+-(void)application:(UIApplication *)application didFailToRegisterForRemoteNotificationsWithError:(NSError *)error {
+    NSLog(@"error here : %@", error);
 }
 
 
-- (void)applicationWillTerminate:(UIApplication *)application {
-    // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+- (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken{
+    
+    devceToken = [[NSString alloc]initWithFormat:@"%@",[[[deviceToken description] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"<>"]] stringByReplacingOccurrencesOfString:@" " withString:@""]];
+    NSLog(@"Device Token = %@",devceToken);
 }
 
+-(void)userNotificationCenter:(UNUserNotificationCenter *)center willPresentNotification:(UNNotification *)notification withCompletionHandler:(void (^)(UNNotificationPresentationOptions options))completionHandler{
+    
+    NSLog(@"Userinfo %@",notification.request.content.userInfo);
+    
+    [UIApplication sharedApplication].applicationIconBadgeNumber = 0;
+    
+    completionHandler(UNNotificationPresentationOptionAlert);
+}
+
+-(void)removeNotifications{
+    [center removeAllDeliveredNotifications];
+    [center removeAllPendingNotificationRequests];
+}
+
+
+-(void) application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo fetchCompletionHandler:(void(^)(UIBackgroundFetchResult))completionHandler {
+    
+    NSLog(@"info: %@", userInfo);
+    
+    if ([[[UIDevice currentDevice] systemVersion] floatValue] >= 10.0) {
+        
+    }
+    
+    
+    if( [UIApplication sharedApplication].applicationState == UIApplicationStateInactive )
+    {
+        NSLog( @"INACTIVE" );
+        completionHandler( UIBackgroundFetchResultNewData );
+    }
+    else if( [UIApplication sharedApplication].applicationState == UIApplicationStateBackground )
+    {
+        NSLog( @"BACKGROUND" );
+        completionHandler( UIBackgroundFetchResultNewData );
+    }
+    else
+    {
+        NSLog( @"FOREGROUND" );
+        completionHandler( UIBackgroundFetchResultNewData );
+    }
+    
+}
+
++(AppDelegate *)delegate{
+    return (AppDelegate *)[[UIApplication sharedApplication] delegate];
+}
 
 @end
